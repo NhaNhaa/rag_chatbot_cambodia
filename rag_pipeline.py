@@ -38,19 +38,10 @@ def get_groq_client():
     import streamlit as st
     from groq import Groq
 
-    # Debug: print available keys and key status (temporary)
-    st.write("🔍 All secret keys:", list(st.secrets.keys()))
     api_key = st.secrets.get("GROQ_API_KEY")
-    st.write(f"🔍 API key present: {api_key is not None}, length: {len(api_key) if api_key else 0}")
-
     if not api_key:
-        raise ValueError("GROQ_API_KEY not found or empty in secrets.")
-    
-    try:
-        return Groq(api_key=api_key)
-    except Exception as e:
-        st.error(f"Groq client creation failed: {e}")
-        raise
+        raise ValueError("GROQ_API_KEY not found in secrets.")
+    return Groq(api_key=api_key)
 
 def get_hybrid_retriever():
     """Load or create a singleton HybridRetriever from the vectorstore."""
