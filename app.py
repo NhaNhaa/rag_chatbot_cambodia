@@ -39,8 +39,7 @@ def load_groq():
     """Initialize Groq client."""
     try:
         return get_groq_client()
-    except Exception as e:
-        st.error(f"❌ Groq client initialization failed: {e}")
+    except Exception:
         return None
 
 # ========== Page setup ==========
@@ -63,10 +62,11 @@ groq_client = load_groq()
 
 # Fail fast with clear errors
 if groq_client is None:
+    st.error("❌ Could not initialize the AI client. Please check your API key in the app secrets.")
     st.stop()
 
 if index is None:
-    st.error("❌ Knowledge base not found. Ensure vectorstore/ is committed to GitHub.")
+    st.error("❌ Knowledge base not found. Please make sure the vectorstore files are available.")
     st.stop()
 
 # ========== Question input ==========
