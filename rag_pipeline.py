@@ -36,19 +36,15 @@ _reranker = None
 
 def get_groq_client():
     import streamlit as st
-    import os
-    from dotenv import load_dotenv
+    from groq import Groq
 
-    api_key = None
     try:
         api_key = st.secrets["GROQ_API_KEY"]
-    except Exception:
-        load_dotenv()
-        api_key = os.getenv("GROQ_API_KEY")
-
-    if not api_key:
-        raise ValueError("GROQ_API_KEY not found in Streamlit secrets or .env file.")
-    return Groq(api_key=api_key)
+        if not api_key:
+            raise ValueError("GROQ_API_KEY is empty")
+        return Groq(api_key=api_key)
+    except Exception as e:
+        raise ValueError(f"GROQ_API_KEY not found in Streamlit secrets: {e}")
 
 def get_hybrid_retriever():
     """Load or create a singleton HybridRetriever from the vectorstore."""
