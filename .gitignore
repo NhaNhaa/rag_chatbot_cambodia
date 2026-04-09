@@ -1,0 +1,24 @@
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Environment variables
+.env
+
+# Vectorstore (binary, can be regenerated)
+vectorstore/
+
+# Data files (optional – uncomment if you want to exclude)
+# data/documents.json
+# data/provinces.csv
+# data/faq.txt
+
+# IDE
+.vscode/
+.idea/
