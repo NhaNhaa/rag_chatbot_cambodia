@@ -84,7 +84,7 @@ if should_process:
             pass
         
         with st.spinner("🔄 Loading AI model (first time only, ~10 sec)..."):
-            # The token will be picked up from the environment variable
+            # The token is picked up from the environment variable
             return SentenceTransformer("all-MiniLM-L6-v2")
 
     @st.cache_resource
