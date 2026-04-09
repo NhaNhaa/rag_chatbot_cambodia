@@ -5,6 +5,7 @@ Uses advanced RAG: hybrid search + query expansion + reranking.
 """
 
 import streamlit as st
+import os
 
 from config import PAGE_TITLE, PAGE_ICON, DEFAULT_QUESTION, TOP_K_RESULTS, LLM_MODEL_NAME
 from embedder import load_vectorstore, vectorstore_exists
@@ -71,9 +72,25 @@ elif st.session_state.get("auto_ask", False) and st.session_state.input_question
 if should_process:
     @st.cache_resource
     def load_model():
+        """Load sentence-transformer model with optional Hugging Face token from secrets."""
         from sentence_transformers import SentenceTransformer
+        
+        # Try to get HF token from secrets to avoid rate limiting
+        hf_token = None
+        try:
+            hf_token = st.secrets["HF_TOKEN"]
+            # Set environment variable as fallback for underlying library
+            os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_token
+        except Exception:
+            pass
+        
         with st.spinner("🔄 Loading AI model (first time only, ~10 sec)..."):
-            return SentenceTransformer("all-MiniLM-L6-v2")
+            # Use token if available, otherwise try without
+            if hf_token:
+                model = SentenceTransformer("all-MiniLM-L6-v2", use_auth_token=hf_token)
+            else:
+                model = SentenceTransformer("all-MiniLM-L6-v2")
+        return model
 
     @st.cache_resource
     def load_index():
