@@ -6,13 +6,20 @@ Uses advanced RAG: hybrid search + query expansion + reranking.
 
 import streamlit as st
 import os
+from pathlib import Path
 
-from config import PAGE_TITLE, PAGE_ICON, DEFAULT_QUESTION, TOP_K_RESULTS, LLM_MODEL_NAME
+from config import PAGE_TITLE, PAGE_ICON, DEFAULT_QUESTION, TOP_K_RESULTS, LLM_MODEL_NAME, VECTOR_INDEX_PATH, VECTOR_METADATA_PATH
 from embedder import load_vectorstore, vectorstore_exists
 from rag_pipeline import answer_with_rag, answer_without_rag, get_groq_client
 
 st.set_page_config(page_title=PAGE_TITLE, page_icon=PAGE_ICON, layout="centered")
 st.write("🔍 Secrets keys found:", list(st.secrets.keys()))
+
+# ========== Debug: vectorstore paths ==========
+st.write(f"🔍 Index path: {VECTOR_INDEX_PATH}")
+st.write(f"🔍 Index exists: {Path(VECTOR_INDEX_PATH).exists()}")
+st.write(f"🔍 Metadata path: {VECTOR_METADATA_PATH}")
+st.write(f"🔍 Metadata exists: {Path(VECTOR_METADATA_PATH).exists()}")
 
 st.title(f"{PAGE_ICON} {PAGE_TITLE}")
 st.markdown("Ask anything about **Cambodia** – I'll search my knowledge base and give you a reliable answer.")
