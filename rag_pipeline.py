@@ -38,13 +38,19 @@ def get_groq_client():
     import streamlit as st
     from groq import Groq
 
+    # Debug: print available keys and key status (temporary)
+    st.write("🔍 All secret keys:", list(st.secrets.keys()))
+    api_key = st.secrets.get("GROQ_API_KEY")
+    st.write(f"🔍 API key present: {api_key is not None}, length: {len(api_key) if api_key else 0}")
+
+    if not api_key:
+        raise ValueError("GROQ_API_KEY not found or empty in secrets.")
+    
     try:
-        api_key = st.secrets["GROQ_API_KEY"]
-        if not api_key:
-            raise ValueError("GROQ_API_KEY is empty")
         return Groq(api_key=api_key)
     except Exception as e:
-        raise ValueError(f"GROQ_API_KEY not found in Streamlit secrets: {e}")
+        st.error(f"Groq client creation failed: {e}")
+        raise
 
 def get_hybrid_retriever():
     """Load or create a singleton HybridRetriever from the vectorstore."""
@@ -111,6 +117,7 @@ def retrieve_relevant_chunks(
         all_chunks = []
         all_metadata = []
         all_scores = []
+        seen_keys = set()
 
         for sub_q in sub_queries:
             if use_hybrid:
@@ -132,10 +139,11 @@ def retrieve_relevant_chunks(
                         sub_meta.append(metadata[idx])
                         sub_scores.append(s)
 
-            # Deduplicate by (title, chunk_index)
+            # Deduplicate efficiently using a set
             for c, m, s in zip(sub_chunks, sub_meta, sub_scores):
                 key = (m.get('title', ''), m.get('chunk_index', 0))
-                if key not in [(m2.get('title',''), m2.get('chunk_index',0)) for m2 in all_metadata]:
+                if key not in seen_keys:
+                    seen_keys.add(key)
                     all_chunks.append(c)
                     all_metadata.append(m)
                     all_scores.append(s)
@@ -165,26 +173,27 @@ def retrieve_relevant_chunks(
                     candidate_chunks.append(chunks[idx])
                     candidate_metadata.append(metadata[idx])
 
-    # ----- Step 2: re‑rank with cross‑encoder -----
+    # ----- Step 2: apply filters BEFORE reranking -----
+    if filter_categories or filter_sources:
+        candidate_metadata, candidate_chunks = apply_filters(
+            candidate_metadata, candidate_chunks,
+            source_types=filter_sources,
+            categories=filter_categories
+        )
+
+    # ----- Step 3: re‑rank with cross‑encoder (if enough candidates remain) -----
     if use_reranker and candidate_chunks:
         reranker = get_reranker()
         reranked_chunks, reranked_scores = reranker.rerank(query, candidate_chunks, top_k=rerank_top_k)
-        # Align metadata with reranked chunks
-        chunk_to_meta = {chunk: meta for chunk, meta in zip(candidate_chunks, candidate_metadata)}
-        reranked_metadata = [chunk_to_meta[chunk] for chunk in reranked_chunks if chunk in chunk_to_meta]
+        # Align metadata using index mapping (robust against duplicate texts)
+        chunk_to_idx = {chunk: i for i, chunk in enumerate(candidate_chunks)}
+        reranked_metadata = [candidate_metadata[chunk_to_idx[chunk]] 
+                             for chunk in reranked_chunks if chunk in chunk_to_idx]
         retrieved_chunks = reranked_chunks[:top_k]
         retrieved_metadata = reranked_metadata[:top_k]
     else:
         retrieved_chunks = candidate_chunks[:top_k]
         retrieved_metadata = candidate_metadata[:top_k]
-
-    # ----- Step 3: apply filters (if any) -----
-    if filter_categories or filter_sources:
-        retrieved_metadata, retrieved_chunks = apply_filters(
-            retrieved_metadata, retrieved_chunks,
-            source_types=filter_sources,
-            categories=filter_categories
-        )
 
     retrieval_time = time.time() - start_time
     return retrieved_chunks, retrieved_metadata, retrieval_time
