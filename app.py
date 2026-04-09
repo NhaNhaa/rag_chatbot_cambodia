@@ -11,6 +11,7 @@ from config import PAGE_TITLE, PAGE_ICON, DEFAULT_QUESTION, TOP_K_RESULTS, LLM_M
 from embedder import load_vectorstore, vectorstore_exists
 from rag_pipeline import answer_with_rag, answer_without_rag, get_groq_client
 
+st.write("🔍 Secrets keys found:", list(st.secrets.keys()))
 st.set_page_config(page_title=PAGE_TITLE, page_icon=PAGE_ICON, layout="centered")
 
 st.title(f"{PAGE_ICON} {PAGE_TITLE}")
