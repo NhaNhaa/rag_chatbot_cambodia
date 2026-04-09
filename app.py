@@ -27,7 +27,7 @@ with st.expander("ℹ️ How this works (click to read)"):
     """)
 
 # ========== Question input ==========
-# Separate session state variable for the text input (not a widget key)
+# Separate session state variable for the text input
 if "input_question" not in st.session_state:
     st.session_state.input_question = DEFAULT_QUESTION
 
@@ -37,14 +37,14 @@ query = st.text_area(
     height=100,
     placeholder="e.g., What is Angkor Wat? Where can I try Cambodian food?",
     label_visibility="visible",
-    key="question_input"   # different from the variable name
+    key="question_input"
 )
 
 col_ask, col_spacer = st.columns([1, 5])
 with col_ask:
     ask_button = st.button("🔍 Ask now", type="primary", use_container_width=True)
 
-# ========== Example questions (big, easy to click) ==========
+# ========== Example questions (click to fill AND ask) ==========
 st.markdown("---")
 st.markdown("### 🧪 Try these examples (click any)")
 example_questions = [
@@ -58,13 +58,22 @@ cols = st.columns(2)
 for i, q in enumerate(example_questions):
     col_idx = i % 2
     if cols[col_idx].button(q, key=f"ex_{i}", use_container_width=True):
-        st.session_state.input_question = q   # update the separate variable
+        st.session_state.input_question = q
+        st.session_state.auto_ask = True   # flag to auto-submit
         st.rerun()
 
 st.markdown("---")
 
-# ========== Process the query ==========
+# ========== Determine whether to process the query ==========
+should_process = False
 if ask_button and query.strip():
+    should_process = True
+elif st.session_state.get("auto_ask", False) and st.session_state.input_question.strip():
+    # Auto‑ask triggered by example button
+    should_process = True
+    st.session_state.auto_ask = False   # reset flag
+
+if should_process:
     # Load resources (cached, so only once)
     @st.cache_resource
     def load_model():
@@ -99,7 +108,7 @@ if ask_button and query.strip():
 
     with st.spinner("🔍 Searching knowledge base and writing answer (using advanced RAG)..."):
         result = answer_with_rag(
-            query=query.strip(),
+            query=st.session_state.input_question.strip(),
             index=index,
             metadata=metadata,
             chunks=chunks,
@@ -117,7 +126,7 @@ if ask_button and query.strip():
     st.markdown("### ✅ Answer")
     st.write(result["answer"])
 
-    # ========== Show where the info came from ==========
+    # ========== Show sources ==========
     if result["num_chunks"] > 0:
         with st.expander("📚 Sources I used (click to see the original text)"):
             for i, meta in enumerate(result["retrieved_metadata"]):
@@ -135,8 +144,10 @@ if ask_button and query.strip():
         col2.metric("AI writing time", f"{result['generation_time']:.2f} sec")
         col3.metric("Chunks used", result["num_chunks"])
 
-elif ask_button and not query.strip():
+elif (ask_button or st.session_state.get("auto_ask", False)) and not st.session_state.input_question.strip():
     st.warning("⚠️ Please type a question first.")
+    if st.session_state.get("auto_ask", False):
+        st.session_state.auto_ask = False
 
 # ========== Footer with credits ==========
 st.markdown("---")
