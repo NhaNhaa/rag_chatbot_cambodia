@@ -73,25 +73,19 @@ elif st.session_state.get("auto_ask", False) and st.session_state.input_question
 if should_process:
     @st.cache_resource
     def load_model():
-        """Load sentence-transformer model with optional Hugging Face token from secrets."""
+        """Load sentence-transformer model using HF_TOKEN from secrets."""
         from sentence_transformers import SentenceTransformer
         
-        # Try to get HF token from secrets to avoid rate limiting
-        hf_token = None
+        # Set Hugging Face token from secrets (if available)
         try:
             hf_token = st.secrets["HF_TOKEN"]
-            # Set environment variable as fallback for underlying library
             os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_token
         except Exception:
             pass
         
         with st.spinner("🔄 Loading AI model (first time only, ~10 sec)..."):
-            # Use token if available, otherwise try without
-            if hf_token:
-                model = SentenceTransformer("all-MiniLM-L6-v2", use_auth_token=hf_token)
-            else:
-                model = SentenceTransformer("all-MiniLM-L6-v2")
-        return model
+            # The token will be picked up from the environment variable
+            return SentenceTransformer("all-MiniLM-L6-v2")
 
     @st.cache_resource
     def load_index():
@@ -103,7 +97,8 @@ if should_process:
     def load_groq():
         try:
             return get_groq_client()
-        except Exception:
+        except Exception as e:
+            st.error(f"❌ Groq client initialization failed: {e}")
             return None
 
     embed_model = load_model()
@@ -111,7 +106,6 @@ if should_process:
     groq_client = load_groq()
 
     if groq_client is None:
-        st.error("❌ Missing API key. Please add GROQ_API_KEY to Streamlit secrets.")
         st.stop()
 
     if index is None:
