@@ -27,15 +27,17 @@ with st.expander("ℹ️ How this works (click to read)"):
     """)
 
 # ========== Question input ==========
-if "query_text" not in st.session_state:
-    st.session_state.query_text = DEFAULT_QUESTION
+# Separate session state variable for the text input (not a widget key)
+if "input_question" not in st.session_state:
+    st.session_state.input_question = DEFAULT_QUESTION
 
 query = st.text_area(
     "📝 **Your question**",
+    value=st.session_state.input_question,
     height=100,
     placeholder="e.g., What is Angkor Wat? Where can I try Cambodian food?",
     label_visibility="visible",
-    key="query_text"
+    key="question_input"   # different from the variable name
 )
 
 col_ask, col_spacer = st.columns([1, 5])
@@ -56,7 +58,7 @@ cols = st.columns(2)
 for i, q in enumerate(example_questions):
     col_idx = i % 2
     if cols[col_idx].button(q, key=f"ex_{i}", use_container_width=True):
-        st.session_state.query_text = q
+        st.session_state.input_question = q   # update the separate variable
         st.rerun()
 
 st.markdown("---")
@@ -105,8 +107,8 @@ if ask_button and query.strip():
             groq_client=groq_client,
             top_k=TOP_K_RESULTS,
             use_hybrid=True,
-            use_query_expansion=True,   # breaks complex questions into sub‑queries
-            use_reranker=True,          # re‑ranks chunks for better relevance
+            use_query_expansion=True,
+            use_reranker=True,
             filter_categories=None,
             filter_sources=None,
         )
