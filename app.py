@@ -10,14 +10,11 @@ from config import PAGE_TITLE, PAGE_ICON, DEFAULT_QUESTION, TOP_K_RESULTS, LLM_M
 from embedder import load_vectorstore, vectorstore_exists
 from rag_pipeline import answer_with_rag, answer_without_rag, get_groq_client
 
-# ========== Page setup ==========
 st.set_page_config(page_title=PAGE_TITLE, page_icon=PAGE_ICON, layout="centered")
 
-# ========== Header ==========
 st.title(f"{PAGE_ICON} {PAGE_TITLE}")
 st.markdown("Ask anything about **Cambodia** – I'll search my knowledge base and give you a reliable answer.")
 
-# ========== Simple explanation (no jargon) ==========
 with st.expander("ℹ️ How this works (click to read)"):
     st.markdown("""
     - I look up information from **Wikipedia articles, travel FAQs, and province data** about Cambodia.
@@ -27,7 +24,6 @@ with st.expander("ℹ️ How this works (click to read)"):
     """)
 
 # ========== Question input ==========
-# Separate session state variable for the text input
 if "input_question" not in st.session_state:
     st.session_state.input_question = DEFAULT_QUESTION
 
@@ -40,7 +36,7 @@ query = st.text_area(
     key="question_input"
 )
 
-col_ask, col_spacer = st.columns([1, 5])
+col_ask, _ = st.columns([1, 5])
 with col_ask:
     ask_button = st.button("🔍 Ask now", type="primary", use_container_width=True)
 
@@ -59,22 +55,20 @@ for i, q in enumerate(example_questions):
     col_idx = i % 2
     if cols[col_idx].button(q, key=f"ex_{i}", use_container_width=True):
         st.session_state.input_question = q
-        st.session_state.auto_ask = True   # flag to auto-submit
+        st.session_state.auto_ask = True
         st.rerun()
 
 st.markdown("---")
 
-# ========== Determine whether to process the query ==========
+# ========== Determine whether to process ==========
 should_process = False
 if ask_button and query.strip():
     should_process = True
 elif st.session_state.get("auto_ask", False) and st.session_state.input_question.strip():
-    # Auto‑ask triggered by example button
     should_process = True
-    st.session_state.auto_ask = False   # reset flag
+    st.session_state.auto_ask = False
 
 if should_process:
-    # Load resources (cached, so only once)
     @st.cache_resource
     def load_model():
         from sentence_transformers import SentenceTransformer
@@ -99,14 +93,14 @@ if should_process:
     groq_client = load_groq()
 
     if groq_client is None:
-        st.error("❌ Missing API key. Please create a `.env` file with `GROQ_API_KEY=...`")
+        st.error("❌ Missing API key. Please add GROQ_API_KEY to Streamlit secrets.")
         st.stop()
 
     if index is None:
         st.error("❌ Knowledge base not found. Run `python embedder.py` first.")
         st.stop()
 
-    with st.spinner("🔍 Searching knowledge base and writing answer (using advanced RAG)..."):
+    with st.spinner("🔍 Searching knowledge base and writing answer..."):
         result = answer_with_rag(
             query=st.session_state.input_question.strip(),
             index=index,
@@ -122,11 +116,9 @@ if should_process:
             filter_sources=None,
         )
 
-    # ========== Display answer ==========
     st.markdown("### ✅ Answer")
     st.write(result["answer"])
 
-    # ========== Show sources ==========
     if result["num_chunks"] > 0:
         with st.expander("📚 Sources I used (click to see the original text)"):
             for i, meta in enumerate(result["retrieved_metadata"]):
@@ -137,7 +129,6 @@ if should_process:
     else:
         st.info("ℹ️ No relevant information found. Try rephrasing your question.")
 
-    # ========== Performance stats ==========
     with st.expander("⚡ Performance (how fast it worked)"):
         col1, col2, col3 = st.columns(3)
         col1.metric("Search time", f"{result['retrieval_time']:.2f} sec")
@@ -149,6 +140,5 @@ elif (ask_button or st.session_state.get("auto_ask", False)) and not st.session_
     if st.session_state.get("auto_ask", False):
         st.session_state.auto_ask = False
 
-# ========== Footer with credits ==========
 st.markdown("---")
 st.caption(f"📖 **Knowledge sources:** Wikipedia articles, Cambodia Travel FAQ, province data | 🤖 AI model: {LLM_MODEL_NAME} via Groq | 🔎 Search: hybrid + query expansion + reranking")
