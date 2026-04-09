@@ -35,7 +35,6 @@ _hybrid_retriever = None
 _reranker = None
 
 def get_groq_client():
-    """Initialize and return Groq client using API key from environment or Streamlit secrets."""
     import streamlit as st
     import os
     from dotenv import load_dotenv
@@ -43,15 +42,9 @@ def get_groq_client():
     api_key = None
     try:
         api_key = st.secrets["GROQ_API_KEY"]
-        print(f"✅ Secret loaded, first 10 chars: {api_key[:10]}...")
-    except Exception as e:
-        print(f"❌ Failed to read st.secrets: {e}")
+    except Exception:
         load_dotenv()
         api_key = os.getenv("GROQ_API_KEY")
-        if api_key:
-            print("✅ API key loaded from .env")
-        else:
-            print("❌ No API key found in .env")
 
     if not api_key:
         raise ValueError("GROQ_API_KEY not found in Streamlit secrets or .env file.")
