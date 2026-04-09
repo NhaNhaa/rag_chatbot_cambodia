@@ -19,7 +19,7 @@ CHUNK_OVERLAP = 200
 TOP_K_RESULTS = 5
 
 # ========== LLM via Groq ==========
-LLM_MODEL_NAME = "openai/gpt-oss-120b"
+LLM_MODEL_NAME = "llama3-70b-8192"
 GROQ_API_BASE = "https://api.groq.com/openai/v1"
 
 # ========== Streamlit UI ==========

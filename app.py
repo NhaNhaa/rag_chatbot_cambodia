@@ -6,21 +6,45 @@ Uses advanced RAG: hybrid search + query expansion + reranking.
 
 import streamlit as st
 import os
-from pathlib import Path
 
-from config import PAGE_TITLE, PAGE_ICON, DEFAULT_QUESTION, TOP_K_RESULTS, LLM_MODEL_NAME, VECTOR_INDEX_PATH, VECTOR_METADATA_PATH
+from config import PAGE_TITLE, PAGE_ICON, DEFAULT_QUESTION, TOP_K_RESULTS, LLM_MODEL_NAME
 from embedder import load_vectorstore, vectorstore_exists
 from rag_pipeline import answer_with_rag, answer_without_rag, get_groq_client
 
+# ========== Cached resources (loaded once at startup) ==========
+@st.cache_resource
+def load_model():
+    """Load sentence-transformer model using HF_TOKEN from secrets."""
+    from sentence_transformers import SentenceTransformer
+
+    # Set Hugging Face token from secrets (if available)
+    try:
+        hf_token = st.secrets["HF_TOKEN"]
+        os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_token
+    except Exception:
+        pass
+
+    with st.spinner("🔄 Loading AI model (first time only, ~10 sec)..."):
+        return SentenceTransformer("all-MiniLM-L6-v2")
+
+@st.cache_resource
+def load_index():
+    """Load FAISS index and metadata."""
+    if not vectorstore_exists():
+        return None, None, None
+    return load_vectorstore()
+
+@st.cache_resource
+def load_groq():
+    """Initialize Groq client."""
+    try:
+        return get_groq_client()
+    except Exception as e:
+        st.error(f"❌ Groq client initialization failed: {e}")
+        return None
+
+# ========== Page setup ==========
 st.set_page_config(page_title=PAGE_TITLE, page_icon=PAGE_ICON, layout="centered")
-st.write("🔍 Secrets keys found:", list(st.secrets.keys()))
-
-# ========== Debug: vectorstore paths ==========
-st.write(f"🔍 Index path: {VECTOR_INDEX_PATH}")
-st.write(f"🔍 Index exists: {Path(VECTOR_INDEX_PATH).exists()}")
-st.write(f"🔍 Metadata path: {VECTOR_METADATA_PATH}")
-st.write(f"🔍 Metadata exists: {Path(VECTOR_METADATA_PATH).exists()}")
-
 st.title(f"{PAGE_ICON} {PAGE_TITLE}")
 st.markdown("Ask anything about **Cambodia** – I'll search my knowledge base and give you a reliable answer.")
 
@@ -32,6 +56,19 @@ with st.expander("ℹ️ How this works (click to read)"):
     - **No settings to worry about** – just ask!
     """)
 
+# ========== Load resources once ==========
+embed_model = load_model()
+index, metadata, chunks = load_index()
+groq_client = load_groq()
+
+# Fail fast with clear errors
+if groq_client is None:
+    st.stop()
+
+if index is None:
+    st.error("❌ Knowledge base not found. Ensure vectorstore/ is committed to GitHub.")
+    st.stop()
+
 # ========== Question input ==========
 if "input_question" not in st.session_state:
     st.session_state.input_question = DEFAULT_QUESTION
@@ -41,7 +78,6 @@ query = st.text_area(
     value=st.session_state.input_question,
     height=100,
     placeholder="e.g., What is Angkor Wat? Where can I try Cambodian food?",
-    label_visibility="visible",
     key="question_input"
 )
 
@@ -78,47 +114,6 @@ elif st.session_state.get("auto_ask", False) and st.session_state.input_question
     st.session_state.auto_ask = False
 
 if should_process:
-    @st.cache_resource
-    def load_model():
-        """Load sentence-transformer model using HF_TOKEN from secrets."""
-        from sentence_transformers import SentenceTransformer
-        
-        # Set Hugging Face token from secrets (if available)
-        try:
-            hf_token = st.secrets["HF_TOKEN"]
-            os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_token
-        except Exception:
-            pass
-        
-        with st.spinner("🔄 Loading AI model (first time only, ~10 sec)..."):
-            # The token is picked up from the environment variable
-            return SentenceTransformer("all-MiniLM-L6-v2")
-
-    @st.cache_resource
-    def load_index():
-        if not vectorstore_exists():
-            return None, None, None
-        return load_vectorstore()
-
-    @st.cache_resource
-    def load_groq():
-        try:
-            return get_groq_client()
-        except Exception as e:
-            st.error(f"❌ Groq client initialization failed: {e}")
-            return None
-
-    embed_model = load_model()
-    index, metadata, chunks = load_index()
-    groq_client = load_groq()
-
-    if groq_client is None:
-        st.stop()
-
-    if index is None:
-        st.error("❌ Knowledge base not found. Run `python embedder.py` first.")
-        st.stop()
-
     with st.spinner("🔍 Searching knowledge base and writing answer..."):
         result = answer_with_rag(
             query=st.session_state.input_question.strip(),
